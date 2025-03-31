@@ -75,7 +75,7 @@
   }
 
   body {
-    @apply bg-hsl-var(--wizard-bg) text-foreground;
+    @apply bg-[hsl(var(--wizard-bg))] text-foreground;
   }
 }
 
