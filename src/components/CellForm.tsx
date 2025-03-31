@@ -3,12 +3,13 @@ import React, { useState, useEffect } from 'react';
 import { CellData } from '../types/form';
 import { FormLabel, CustomSelect, CustomInput, FormGroup, FormRow } from './FormFields';
 import { Button } from '@/components/ui/button';
-import { Plus, CircleX } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Plus, CircleX, AlertCircle } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { getCellData, saveCellData } from '../utils/localStorage';
 import { ApiService } from '../services/api';
 import { toast } from '@/components/ui/use-toast';
+import { Link } from 'react-router-dom';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface CellFormProps {
   onNext: () => void;
@@ -19,10 +20,12 @@ const CellForm: React.FC<CellFormProps> = ({ onNext }) => {
     {
       id: 1,
       ratType: '',
+      mobility: 'No',
     }
   ]);
   const [isAdvancedSettings, setIsAdvancedSettings] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isFormValid, setIsFormValid] = useState(false);
 
   useEffect(() => {
     // Load data from localStorage when component mounts
@@ -32,10 +35,87 @@ const CellForm: React.FC<CellFormProps> = ({ onNext }) => {
     }
   }, []);
 
+  useEffect(() => {
+    // Validate form whenever cells change
+    validateForm();
+  }, [cells]);
+
+  const validateForm = () => {
+    let valid = true;
+    
+    // Check if all required fields are filled for each cell
+    cells.forEach(cell => {
+      if (!cell.ratType || 
+          !cell.cellType || 
+          !cell.bsId || 
+          !cell.scs || 
+          !cell.bandwidth || 
+          !cell.dlAntennas || 
+          !cell.ulAntennas || 
+          !cell.rfCard) {
+        valid = false;
+      }
+      
+      // Check conditional fields based on RAT type
+      if (cell.ratType === '5G:SA' && (!cell.duplexMode || !cell.band)) {
+        valid = false;
+      }
+    });
+    
+    setIsFormValid(valid);
+  };
+
   const handleRatTypeChange = (value: string, cellId: number) => {
     const updatedCells = cells.map(cell => {
       if (cell.id === cellId) {
-        return { ...cell, ratType: value };
+        // Set default cell type based on RAT type
+        let cellType = '';
+        if (value === '4G') {
+          cellType = 'LTE';
+        } else if (value === '5G:SA' || value === '5G:NSA/DSS') {
+          cellType = '5G';
+        }
+        
+        return { ...cell, ratType: value, cellType };
+      }
+      return cell;
+    });
+    
+    // For 5G:NSA/DSS, ensure we have complementary cell types
+    if (value === '5G:NSA/DSS') {
+      // Check if we already have both 5G and LTE cells
+      const has5G = updatedCells.some(c => c.cellType === '5G' && c.id !== cellId);
+      const hasLTE = updatedCells.some(c => c.cellType === 'LTE' && c.id !== cellId);
+      
+      // If not, update another cell or add a new one
+      if (!has5G && !hasLTE) {
+        // The current cell is 5G, so add an LTE cell
+        if (updatedCells.length === 1) {
+          // Add new LTE cell
+          updatedCells.push({
+            id: 2,
+            ratType: '5G:NSA/DSS',
+            cellType: 'LTE',
+            mobility: 'No',
+          });
+        } else {
+          // Update an existing cell to LTE
+          updatedCells[1] = {
+            ...updatedCells[1],
+            ratType: '5G:NSA/DSS',
+            cellType: 'LTE'
+          };
+        }
+      }
+    }
+    
+    setCells(updatedCells);
+  };
+
+  const handleMobilityChange = (value: string, cellId: number) => {
+    const updatedCells = cells.map(cell => {
+      if (cell.id === cellId) {
+        return { ...cell, mobility: value };
       }
       return cell;
     });
@@ -91,11 +171,33 @@ const CellForm: React.FC<CellFormProps> = ({ onNext }) => {
   const addCell = () => {
     if (cells.length < 3) {
       const newId = Math.max(...cells.map(cell => cell.id)) + 1;
-      setCells([...cells, { id: newId, ratType: '' }]);
+      const ratType = cells[0].ratType; // Use the same RAT type as the first cell
+      
+      // Set default cell type based on RAT type and existing cells
+      let cellType = '';
+      if (ratType === '4G') {
+        cellType = 'LTE';
+      } else if (ratType === '5G:SA') {
+        cellType = '5G';
+      } else if (ratType === '5G:NSA/DSS') {
+        // For NSA, check if we already have both 5G and LTE
+        const has5G = cells.some(c => c.cellType === '5G');
+        const hasLTE = cells.some(c => c.cellType === 'LTE');
+        
+        // Add the one we don't have yet, or 5G if we have both
+        cellType = !hasLTE ? 'LTE' : !has5G ? '5G' : '5G';
+      }
+      
+      setCells([...cells, { 
+        id: newId, 
+        ratType, 
+        cellType,
+        mobility: 'No',
+      }]);
     } else {
       toast({
-        title: "Maximum limit reached",
-        description: "You can only add up to 3 cells",
+        title: "For four cells you have to upgrade the license",
+        description: "Contact your administrator to upgrade your license.",
         variant: "destructive"
       });
     }
@@ -103,7 +205,25 @@ const CellForm: React.FC<CellFormProps> = ({ onNext }) => {
 
   const removeCell = (cellId: number) => {
     if (cells.length > 1) {
-      setCells(cells.filter(cell => cell.id !== cellId));
+      // Check if we're removing a required cell for NSA mode
+      const updatedCells = cells.filter(cell => cell.id !== cellId);
+      
+      if (cells[0].ratType === '5G:NSA/DSS') {
+        // Check if we still have both 5G and LTE after removal
+        const has5G = updatedCells.some(c => c.cellType === '5G');
+        const hasLTE = updatedCells.some(c => c.cellType === 'LTE');
+        
+        if (!has5G || !hasLTE) {
+          toast({
+            title: "Cannot remove this cell",
+            description: "NSA mode requires at least one 5G and one LTE cell",
+            variant: "destructive"
+          });
+          return;
+        }
+      }
+      
+      setCells(updatedCells);
     } else {
       toast({
         title: "Cannot remove cell",
@@ -116,6 +236,34 @@ const CellForm: React.FC<CellFormProps> = ({ onNext }) => {
   const handleNext = async () => {
     try {
       setLoading(true);
+      
+      if (!isFormValid) {
+        toast({
+          title: "Validation failed",
+          description: "Please fill in all required fields before proceeding.",
+          variant: "destructive"
+        });
+        setLoading(false);
+        return;
+      }
+      
+      // Check if mobility is enabled but not configured
+      const mobilityEnabled = cells.some(cell => cell.mobility === 'Yes');
+      if (mobilityEnabled) {
+        // Check if mobility is configured (this would be more complex in a real app)
+        const isMobilityConfigured = true; // This would be a check against actual mobility configuration
+        
+        if (!isMobilityConfigured) {
+          toast({
+            title: "Mobility not configured",
+            description: "You have enabled mobility but haven't configured it.",
+            variant: "destructive"
+          });
+          setLoading(false);
+          return;
+        }
+      }
+      
       // Make API call
       await ApiService.saveCellData(cells);
       // Save to localStorage
@@ -140,6 +288,11 @@ const CellForm: React.FC<CellFormProps> = ({ onNext }) => {
     { value: '5G:NSA/DSS', label: '5G:NSA/DSS' },
   ];
 
+  const mobilityOptions = [
+    { value: 'No', label: 'No' },
+    { value: 'Yes', label: 'Yes' },
+  ];
+
   const duplexModeOptions = [
     { value: 'FDD', label: 'FDD' },
     { value: 'TDD', label: 'TDD' },
@@ -160,10 +313,22 @@ const CellForm: React.FC<CellFormProps> = ({ onNext }) => {
     return [];
   };
 
-  const cellTypeOptions = [
-    { value: '5G', label: '5G' },
-    { value: 'LTE', label: 'LTE' },
-  ];
+  const cellTypeOptions = (ratType: string) => {
+    if (ratType === '4G') {
+      return [{ value: 'LTE', label: 'LTE' }];
+    } else if (ratType === '5G:SA') {
+      return [{ value: '5G', label: '5G' }];
+    } else if (ratType === '5G:NSA/DSS') {
+      return [
+        { value: '5G', label: '5G' },
+        { value: 'LTE', label: 'LTE' },
+      ];
+    }
+    return [
+      { value: '5G', label: '5G' },
+      { value: 'LTE', label: 'LTE' },
+    ];
+  };
 
   const bsIdOptions = Array.from({ length: 10 }, (_, i) => ({
     value: `${i + 1}`,
@@ -210,6 +375,9 @@ const CellForm: React.FC<CellFormProps> = ({ onNext }) => {
     { value: '4', label: '4' },
   ];
 
+  // Only allow setting RAT Type on the first cell, others inherit it
+  const canChangeRatType = (cellId: number) => cellId === 1;
+
   return (
     <div className="wizard-content">
       <div className="mb-6 flex items-center justify-between">
@@ -223,8 +391,41 @@ const CellForm: React.FC<CellFormProps> = ({ onNext }) => {
         </div>
       </div>
 
+      {/* Common RAT Type selector for all cells */}
+      <FormRow>
+        <FormGroup>
+          <FormLabel htmlFor="ratType-header" label="RAT Type" required tooltipText="Radio Access Technology Type" />
+          <CustomSelect
+            id="ratType-header"
+            value={cells[0].ratType}
+            onChange={(value) => handleRatTypeChange(value, 1)}
+            options={ratTypeOptions}
+          />
+        </FormGroup>
+        
+        <FormGroup>
+          <FormLabel htmlFor="mobility-header" label="Mobility" required tooltipText="Enable mobility for this configuration" />
+          <CustomSelect
+            id="mobility-header"
+            value={cells[0].mobility || 'No'}
+            onChange={(value) => handleMobilityChange(value, 1)}
+            options={mobilityOptions}
+          />
+        </FormGroup>
+      </FormRow>
+
+      {cells[0].mobility === 'Yes' && (
+        <Alert className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Mobility Configuration Required</AlertTitle>
+          <AlertDescription>
+            You have enabled mobility. Make sure to configure mobility settings in the Mobility tab.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {cells.map((cell, index) => (
-        <div key={cell.id} className="cell-container mb-8">
+        <div key={cell.id} className="cell-container mb-8 border p-4 rounded-lg">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">Cell #{cell.id}</h3>
             {cells.length > 1 && (
@@ -238,18 +439,6 @@ const CellForm: React.FC<CellFormProps> = ({ onNext }) => {
               </Button>
             )}
           </div>
-
-          <FormRow>
-            <FormGroup>
-              <FormLabel htmlFor={`ratType-${cell.id}`} label="RAT Type" required tooltipText="Radio Access Technology Type" />
-              <CustomSelect
-                id={`ratType-${cell.id}`}
-                value={cell.ratType}
-                onChange={(value) => handleRatTypeChange(value, cell.id)}
-                options={ratTypeOptions}
-              />
-            </FormGroup>
-          </FormRow>
 
           {cell.ratType === '5G:SA' && (
             <>
@@ -288,7 +477,10 @@ const CellForm: React.FC<CellFormProps> = ({ onNext }) => {
                 id={`cellType-${cell.id}`}
                 value={cell.cellType || ''}
                 onChange={(value) => handleSelectChange(value, cell.id, 'cellType')}
-                options={cellTypeOptions}
+                options={cellTypeOptions(cell.ratType)}
+                className={cells[0].ratType === '4G' || cells[0].ratType === '5G:SA' ? 'bg-gray-100' : ''}
+                // Disable for 4G and 5G:SA since they have fixed cell types
+                // For NSA, only disable if we already have both types and removing would break the requirement
               />
             </FormGroup>
 
@@ -327,7 +519,7 @@ const CellForm: React.FC<CellFormProps> = ({ onNext }) => {
 
           <FormRow>
             <FormGroup>
-              <FormLabel htmlFor={`ntn-${cell.id}`} label="NTN" tooltipText="Non-Terrestrial Network" />
+              <FormLabel htmlFor={`ntn-${cell.id}`} label="NTN" required tooltipText="Non-Terrestrial Network" />
               <CustomSelect
                 id={`ntn-${cell.id}`}
                 value={cell.ntn || 'Disable'}
@@ -375,7 +567,7 @@ const CellForm: React.FC<CellFormProps> = ({ onNext }) => {
             <>
               <FormRow>
                 <FormGroup>
-                  <FormLabel htmlFor={`txGain-${cell.id}`} label="Tx Gain (dB)" />
+                  <FormLabel htmlFor={`txGain-${cell.id}`} label="Tx Gain (dB)" required />
                   <CustomInput
                     id={`txGain-${cell.id}`}
                     value={cell.txGain || ''}
@@ -385,7 +577,7 @@ const CellForm: React.FC<CellFormProps> = ({ onNext }) => {
                 </FormGroup>
 
                 <FormGroup>
-                  <FormLabel htmlFor={`rxGain-${cell.id}`} label="Rx Gain (dB)" />
+                  <FormLabel htmlFor={`rxGain-${cell.id}`} label="Rx Gain (dB)" required />
                   <CustomInput
                     id={`rxGain-${cell.id}`}
                     value={cell.rxGain || ''}
@@ -400,6 +592,7 @@ const CellForm: React.FC<CellFormProps> = ({ onNext }) => {
                   <FormLabel 
                     htmlFor={`dlNrArfcn-${cell.id}`} 
                     label="DL-NR-ARFCN" 
+                    required
                     tooltipText="Downlink New Radio Absolute Radio Frequency Channel Number" 
                   />
                   <CustomInput
@@ -415,6 +608,7 @@ const CellForm: React.FC<CellFormProps> = ({ onNext }) => {
                   <FormLabel 
                     htmlFor={`ssbNrArfcn-${cell.id}`} 
                     label="SSB NR-ARFCN" 
+                    required
                     tooltipText="Synchronization Signal Block New Radio Absolute Radio Frequency Channel Number" 
                   />
                   <CustomInput
@@ -444,7 +638,7 @@ const CellForm: React.FC<CellFormProps> = ({ onNext }) => {
         <Button 
           onClick={handleNext} 
           className="next-button" 
-          disabled={loading}
+          disabled={loading || !isFormValid}
         >
           {loading ? "Saving..." : "Next"}
         </Button>

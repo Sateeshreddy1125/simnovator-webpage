@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { TrafficData } from '../types/form';
 import { FormLabel, CustomSelect, CustomInput, FormGroup, FormRow } from './FormFields';
@@ -27,6 +26,7 @@ const TrafficForm: React.FC<TrafficFormProps> = ({ onPrevious, onNext }) => {
     }
   ]);
   const [loading, setLoading] = useState(false);
+  const [isFormValid, setIsFormValid] = useState(false);
 
   useEffect(() => {
     // Load data from localStorage when component mounts
@@ -35,6 +35,24 @@ const TrafficForm: React.FC<TrafficFormProps> = ({ onPrevious, onNext }) => {
       setTrafficProfiles(savedData);
     }
   }, []);
+
+  useEffect(() => {
+    // Validate form whenever data changes
+    validateForm();
+  }, [trafficProfiles]);
+
+  const validateForm = () => {
+    let valid = true;
+    
+    trafficProfiles.forEach(profile => {
+      if (!profile.profileRange || !profile.attachType || !profile.attachRate ||
+          !profile.powerOnDuration) {
+        valid = false;
+      }
+    });
+    
+    setIsFormValid(valid);
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>, profileId: number, field: keyof TrafficData) => {
     const { value } = e.target;
@@ -57,12 +75,41 @@ const TrafficForm: React.FC<TrafficFormProps> = ({ onPrevious, onNext }) => {
     setTrafficProfiles(updatedProfiles);
   };
 
+  const handleProfileTypeChange = (value: string) => {
+    // Update the profile type for all profiles, then manage the number of profiles
+    let updatedProfiles = trafficProfiles.map(profile => ({
+      ...profile,
+      profileType: value
+    }));
+    
+    if (value === 'Single' && updatedProfiles.length > 1) {
+      // If changing to Single, keep only the first profile
+      updatedProfiles = [updatedProfiles[0]];
+      toast({
+        title: "Profile type changed to Single",
+        description: "Only one profile is allowed in Single mode. Other profiles have been removed.",
+      });
+    }
+    
+    setTrafficProfiles(updatedProfiles);
+  };
+
   const addTrafficProfile = () => {
+    // Check if we're in Single mode
+    if (trafficProfiles[0].profileType === 'Single') {
+      toast({
+        title: "Cannot add profile",
+        description: "In Single profile mode, only one profile is allowed. Change to Mixed to add more profiles.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     if (trafficProfiles.length < 3) {
       const newId = Math.max(...trafficProfiles.map(profile => profile.id)) + 1;
       setTrafficProfiles([...trafficProfiles, {
         id: newId,
-        profileType: 'Single',
+        profileType: trafficProfiles[0].profileType,
         profileRange: '',
         loopProfile: '',
         attachType: '',
@@ -95,18 +142,10 @@ const TrafficForm: React.FC<TrafficFormProps> = ({ onPrevious, onNext }) => {
     try {
       setLoading(true);
       
-      // Validate required fields
-      let isValid = true;
-      trafficProfiles.forEach(profile => {
-        if (!profile.profileRange || !profile.attachRate || !profile.powerOnDuration) {
-          isValid = false;
-        }
-      });
-      
-      if (!isValid) {
+      if (!isFormValid) {
         toast({
-          title: "Validation Error",
-          description: "Please fill in all required fields",
+          title: "Validation failed",
+          description: "Please fill in all required fields before proceeding.",
           variant: "destructive"
         });
         setLoading(false);
@@ -133,7 +172,7 @@ const TrafficForm: React.FC<TrafficFormProps> = ({ onPrevious, onNext }) => {
   // Define available options for dropdowns
   const profileTypeOptions = [
     { value: 'Single', label: 'Single' },
-    { value: 'Multiple', label: 'Multiple' },
+    { value: 'Mixed', label: 'Mixed' },
   ];
 
   const profileRangeOptions = [
@@ -159,8 +198,28 @@ const TrafficForm: React.FC<TrafficFormProps> = ({ onPrevious, onNext }) => {
         <h2 className="text-2xl font-bold">Traffic Configuration</h2>
       </div>
 
+      {/* Common header for Profile Type */}
+      <div className="mb-4 pb-4 border-b">
+        <FormRow>
+          <FormGroup>
+            <FormLabel 
+              htmlFor="profileType-header" 
+              label="Profile Type" 
+              required
+              tooltipText="Type of traffic profile" 
+            />
+            <CustomSelect
+              id="profileType-header"
+              value={trafficProfiles[0].profileType}
+              onChange={handleProfileTypeChange}
+              options={profileTypeOptions}
+            />
+          </FormGroup>
+        </FormRow>
+      </div>
+
       {trafficProfiles.map((profile) => (
-        <div key={profile.id} className="cell-container mb-8">
+        <div key={profile.id} className="cell-container mb-8 border p-4 rounded-lg">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">Profile #{profile.id}</h3>
             {trafficProfiles.length > 1 && (
@@ -174,22 +233,6 @@ const TrafficForm: React.FC<TrafficFormProps> = ({ onPrevious, onNext }) => {
               </Button>
             )}
           </div>
-
-          <FormRow>
-            <FormGroup>
-              <FormLabel 
-                htmlFor={`profileType-${profile.id}`} 
-                label="Profile Type" 
-                tooltipText="Type of traffic profile" 
-              />
-              <CustomSelect
-                id={`profileType-${profile.id}`}
-                value={profile.profileType || 'Single'}
-                onChange={(value) => handleSelectChange(value, profile.id, 'profileType')}
-                options={profileTypeOptions}
-              />
-            </FormGroup>
-          </FormRow>
 
           <FormRow>
             <FormGroup>
@@ -213,6 +256,7 @@ const TrafficForm: React.FC<TrafficFormProps> = ({ onPrevious, onNext }) => {
               <FormLabel 
                 htmlFor={`loopProfile-${profile.id}`} 
                 label="Loop Profile" 
+                required
                 tooltipText="Enable or disable profile looping" 
               />
               <CustomSelect
@@ -229,6 +273,7 @@ const TrafficForm: React.FC<TrafficFormProps> = ({ onPrevious, onNext }) => {
               <FormLabel 
                 htmlFor={`attachType-${profile.id}`} 
                 label="Attach Type" 
+                required
                 tooltipText="Type of attachment" 
               />
               <CustomSelect
@@ -263,6 +308,7 @@ const TrafficForm: React.FC<TrafficFormProps> = ({ onPrevious, onNext }) => {
               <FormLabel 
                 htmlFor={`attachDelay-${profile.id}`} 
                 label="Attach Delay (sec)" 
+                required
                 tooltipText="Delay before attachment" 
               />
               <CustomInput
@@ -300,6 +346,7 @@ const TrafficForm: React.FC<TrafficFormProps> = ({ onPrevious, onNext }) => {
           variant="outline" 
           onClick={addTrafficProfile} 
           className="flex items-center gap-1"
+          disabled={trafficProfiles[0].profileType === 'Single'}
         >
           <Plus className="h-4 w-4" /> Add Profile
         </Button>
@@ -316,7 +363,7 @@ const TrafficForm: React.FC<TrafficFormProps> = ({ onPrevious, onNext }) => {
         <Button 
           onClick={handleNext} 
           className="next-button" 
-          disabled={loading}
+          disabled={loading || !isFormValid}
         >
           {loading ? "Saving..." : "Next"}
         </Button>

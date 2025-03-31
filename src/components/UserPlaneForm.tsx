@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { UserPlaneData } from '../types/form';
 import { FormLabel, CustomSelect, CustomInput, FormGroup, FormRow } from './FormFields';
@@ -37,6 +36,7 @@ const UserPlaneForm: React.FC<UserPlaneFormProps> = ({ onPrevious, onNext }) => 
     }
   ]);
   const [loading, setLoading] = useState(false);
+  const [isFormValid, setIsFormValid] = useState(false);
 
   useEffect(() => {
     // Load data from localStorage when component mounts
@@ -45,6 +45,36 @@ const UserPlaneForm: React.FC<UserPlaneFormProps> = ({ onPrevious, onNext }) => 
       setUserPlanes(savedData);
     }
   }, []);
+
+  useEffect(() => {
+    // Validate form whenever data changes
+    validateForm();
+  }, [userPlanes]);
+
+  const validateForm = () => {
+    let valid = true;
+    
+    userPlanes.forEach(userPlane => {
+      if (!userPlane.subscriberRange || !userPlane.dataType || !userPlane.transportProtocol ||
+          !userPlane.destinationIpAddress || !userPlane.startingPort || !userPlane.pdnType ||
+          !userPlane.duration || !userPlane.dataDirection) {
+        valid = false;
+      }
+      
+      // Check for direction-specific fields
+      if ((userPlane.dataDirection === 'Both' || userPlane.dataDirection === 'DL Only') && 
+          (!userPlane.dlBitrate || !userPlane.dlBitrateUnit)) {
+        valid = false;
+      }
+      
+      if ((userPlane.dataDirection === 'Both' || userPlane.dataDirection === 'UL Only') && 
+          (!userPlane.ulBitrate || !userPlane.ulBitrateUnit)) {
+        valid = false;
+      }
+    });
+    
+    setIsFormValid(valid);
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>, userPlaneId: number, field: keyof UserPlaneData) => {
     const { value } = e.target;
@@ -67,12 +97,41 @@ const UserPlaneForm: React.FC<UserPlaneFormProps> = ({ onPrevious, onNext }) => 
     setUserPlanes(updatedUserPlanes);
   };
 
+  const handleProfileTypeChange = (value: string) => {
+    // Update the profile type for all profiles, then manage the number of profiles
+    let updatedPlanes = userPlanes.map(plane => ({
+      ...plane,
+      profileType: value
+    }));
+    
+    if (value === 'Single' && updatedPlanes.length > 1) {
+      // If changing to Single, keep only the first profile
+      updatedPlanes = [updatedPlanes[0]];
+      toast({
+        title: "Profile type changed to Single",
+        description: "Only one profile is allowed in Single mode. Other profiles have been removed.",
+      });
+    }
+    
+    setUserPlanes(updatedPlanes);
+  };
+
   const addUserPlane = () => {
+    // Check if we're in Single mode
+    if (userPlanes[0].profileType === 'Single') {
+      toast({
+        title: "Cannot add profile",
+        description: "In Single profile mode, only one profile is allowed. Change to Mixed to add more profiles.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     if (userPlanes.length < 3) {
       const newId = Math.max(...userPlanes.map(up => up.id)) + 1;
       setUserPlanes([...userPlanes, {
         id: newId,
-        profileType: 'Single',
+        profileType: userPlanes[0].profileType,
         subscriberRange: '',
         dataType: '',
         transportProtocol: '',
@@ -115,20 +174,10 @@ const UserPlaneForm: React.FC<UserPlaneFormProps> = ({ onPrevious, onNext }) => 
     try {
       setLoading(true);
       
-      // Validate required fields
-      let isValid = true;
-      userPlanes.forEach(userPlane => {
-        if (!userPlane.subscriberRange || !userPlane.dataDirection || 
-            (!userPlane.dlBitrate && userPlane.dataDirection !== 'UL Only') || 
-            (!userPlane.ulBitrate && userPlane.dataDirection !== 'DL Only')) {
-          isValid = false;
-        }
-      });
-      
-      if (!isValid) {
+      if (!isFormValid) {
         toast({
-          title: "Validation Error",
-          description: "Please fill in all required fields",
+          title: "Validation failed",
+          description: "Please fill in all required fields before proceeding.",
           variant: "destructive"
         });
         setLoading(false);
@@ -155,7 +204,7 @@ const UserPlaneForm: React.FC<UserPlaneFormProps> = ({ onPrevious, onNext }) => 
   // Define available options for dropdowns
   const profileTypeOptions = [
     { value: 'Single', label: 'Single' },
-    { value: 'Multiple', label: 'Multiple' },
+    { value: 'Mixed', label: 'Mixed' },
   ];
 
   const rangeOptions = [
@@ -204,8 +253,28 @@ const UserPlaneForm: React.FC<UserPlaneFormProps> = ({ onPrevious, onNext }) => 
         <h2 className="text-2xl font-bold">User Plane Configuration</h2>
       </div>
 
+      {/* Common header for Profile Type */}
+      <div className="mb-4 pb-4 border-b">
+        <FormRow>
+          <FormGroup>
+            <FormLabel 
+              htmlFor="profileType-header" 
+              label="Profile Type" 
+              required
+              tooltipText="Type of user plane profile" 
+            />
+            <CustomSelect
+              id="profileType-header"
+              value={userPlanes[0].profileType}
+              onChange={handleProfileTypeChange}
+              options={profileTypeOptions}
+            />
+          </FormGroup>
+        </FormRow>
+      </div>
+
       {userPlanes.map((userPlane) => (
-        <div key={userPlane.id} className="cell-container mb-8">
+        <div key={userPlane.id} className="cell-container mb-8 border p-4 rounded-lg">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">UP #{userPlane.id}</h3>
             {userPlanes.length > 1 && (
@@ -219,22 +288,6 @@ const UserPlaneForm: React.FC<UserPlaneFormProps> = ({ onPrevious, onNext }) => 
               </Button>
             )}
           </div>
-
-          <FormRow>
-            <FormGroup>
-              <FormLabel 
-                htmlFor={`profileType-${userPlane.id}`} 
-                label="Profile Type" 
-                tooltipText="Type of user plane profile" 
-              />
-              <CustomSelect
-                id={`profileType-${userPlane.id}`}
-                value={userPlane.profileType || 'Single'}
-                onChange={(value) => handleSelectChange(value, userPlane.id, 'profileType')}
-                options={profileTypeOptions}
-              />
-            </FormGroup>
-          </FormRow>
 
           <FormRow>
             <FormGroup>
@@ -258,6 +311,7 @@ const UserPlaneForm: React.FC<UserPlaneFormProps> = ({ onPrevious, onNext }) => 
               <FormLabel 
                 htmlFor={`dataType-${userPlane.id}`} 
                 label="Data Type" 
+                required
                 tooltipText="Type of data traffic" 
               />
               <CustomSelect
@@ -274,6 +328,7 @@ const UserPlaneForm: React.FC<UserPlaneFormProps> = ({ onPrevious, onNext }) => 
               <FormLabel 
                 htmlFor={`transportProtocol-${userPlane.id}`} 
                 label="Transport Protocol" 
+                required
                 tooltipText="Protocol used for transport" 
               />
               <CustomSelect
@@ -342,6 +397,7 @@ const UserPlaneForm: React.FC<UserPlaneFormProps> = ({ onPrevious, onNext }) => 
               <FormLabel 
                 htmlFor={`startDelay-${userPlane.id}`} 
                 label="Start Delay (sec)" 
+                required
                 tooltipText="Initial delay before starting" 
               />
               <CustomInput
@@ -377,6 +433,7 @@ const UserPlaneForm: React.FC<UserPlaneFormProps> = ({ onPrevious, onNext }) => 
               <FormLabel 
                 htmlFor={`dataLoop-${userPlane.id}`} 
                 label="Data Loop" 
+                required
                 tooltipText="Enable or disable data looping" 
               />
               <CustomSelect
@@ -470,6 +527,7 @@ const UserPlaneForm: React.FC<UserPlaneFormProps> = ({ onPrevious, onNext }) => 
               <FormLabel 
                 htmlFor={`payloadLength-${userPlane.id}`} 
                 label="Payload Length (bytes)" 
+                required
                 tooltipText="Length of the data payload" 
               />
               <CustomInput
@@ -487,6 +545,7 @@ const UserPlaneForm: React.FC<UserPlaneFormProps> = ({ onPrevious, onNext }) => 
               <FormLabel 
                 htmlFor={`mtuSize-${userPlane.id}`} 
                 label="MTU Size (bytes)" 
+                required
                 tooltipText="Maximum Transmission Unit size" 
               />
               <CustomInput
@@ -506,6 +565,7 @@ const UserPlaneForm: React.FC<UserPlaneFormProps> = ({ onPrevious, onNext }) => 
           variant="outline" 
           onClick={addUserPlane} 
           className="flex items-center gap-1"
+          disabled={userPlanes[0].profileType === 'Single'}
         >
           <Plus className="h-4 w-4" /> Add Profile
         </Button>
@@ -522,7 +582,7 @@ const UserPlaneForm: React.FC<UserPlaneFormProps> = ({ onPrevious, onNext }) => 
         <Button 
           onClick={handleNext} 
           className="next-button" 
-          disabled={loading}
+          disabled={loading || !isFormValid}
         >
           {loading ? "Saving..." : "Next"}
         </Button>

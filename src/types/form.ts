@@ -2,6 +2,7 @@
 export interface CellData {
   id: number;
   ratType: string;
+  mobility?: string;
   duplexMode?: string;
   band?: string;
   cellType?: string;

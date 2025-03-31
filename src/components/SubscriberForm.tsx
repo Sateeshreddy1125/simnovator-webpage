@@ -4,11 +4,10 @@ import { SubscriberData } from '../types/form';
 import { FormLabel, CustomSelect, CustomInput, FormGroup, FormRow, CustomCheckbox } from './FormFields';
 import { Button } from '@/components/ui/button';
 import { Plus, CircleX } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Switch } from '@/components/ui/switch';
 import { getSubscriberData, saveSubscriberData } from '../utils/localStorage';
 import { ApiService } from '../services/api';
 import { toast } from '@/components/ui/use-toast';
-import { Switch } from '@/components/ui/switch';
 
 interface SubscriberFormProps {
   onPrevious: () => void;
@@ -27,12 +26,16 @@ const SubscriberForm: React.FC<SubscriberFormProps> = ({ onPrevious, onNext }) =
       nextSupi: '',
       algorithm: '',
       sharedKey: '',
-      integrityAlgorithm: [],
-      cipherAlgorithm: [],
+      integrityAlgorithm: ['NIA0', 'NIA1', 'NIA2'],
+      cipherAlgorithm: ['NEA0', 'NEA1', 'NEA2'],
+      cqi: 'Auto',
+      ri: 'Auto',
+      pmi: 'Auto',
     }
   ]);
   const [loading, setLoading] = useState(false);
   const [isAdvancedSettings, setIsAdvancedSettings] = useState(false);
+  const [isFormValid, setIsFormValid] = useState(false);
 
   useEffect(() => {
     // Load data from localStorage when component mounts
@@ -41,6 +44,30 @@ const SubscriberForm: React.FC<SubscriberFormProps> = ({ onPrevious, onNext }) =
       setSubscribers(savedSubscribers);
     }
   }, []);
+
+  useEffect(() => {
+    // Validate form whenever subscribers change
+    validateForm();
+  }, [subscribers]);
+
+  const validateForm = () => {
+    let valid = true;
+    
+    subscribers.forEach(subscriber => {
+      if (!subscriber.noOfUes || !subscriber.servingCell || !subscriber.startingSupi || 
+          !subscriber.algorithm || !subscriber.sharedKey) {
+        valid = false;
+      }
+      
+      if (isAdvancedSettings) {
+        if (!subscriber.ueType || !subscriber.ueCategory) {
+          valid = false;
+        }
+      }
+    });
+    
+    setIsFormValid(valid);
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>, subscriberId: number, field: keyof SubscriberData) => {
     const { value } = e.target;
@@ -133,8 +160,11 @@ const SubscriberForm: React.FC<SubscriberFormProps> = ({ onPrevious, onNext }) =
       nextSupi: '',
       algorithm: '',
       sharedKey: '',
-      integrityAlgorithm: [],
-      cipherAlgorithm: [],
+      integrityAlgorithm: ['NIA0', 'NIA1', 'NIA2'],
+      cipherAlgorithm: ['NEA0', 'NEA1', 'NEA2'],
+      cqi: 'Auto',
+      ri: 'Auto',
+      pmi: 'Auto',
     }]);
   };
 
@@ -154,18 +184,10 @@ const SubscriberForm: React.FC<SubscriberFormProps> = ({ onPrevious, onNext }) =
     try {
       setLoading(true);
       
-      // Validate required fields
-      let isValid = true;
-      subscribers.forEach(subscriber => {
-        if (!subscriber.noOfUes || !subscriber.servingCell || !subscriber.startingSupi) {
-          isValid = false;
-        }
-      });
-      
-      if (!isValid) {
+      if (!isFormValid) {
         toast({
-          title: "Validation Error",
-          description: "Please fill in all required fields",
+          title: "Validation failed",
+          description: "Please fill in all required fields before proceeding.",
           variant: "destructive"
         });
         setLoading(false);
@@ -250,8 +272,14 @@ const SubscriberForm: React.FC<SubscriberFormProps> = ({ onPrevious, onNext }) =
         </div>
       </div>
 
+      {/* Header for # of UEs */}
+      <div className="mb-4">
+        <h3 className="text-lg font-semibold"># of UE's</h3>
+        <p className="text-sm text-gray-600">Configure UE ranges based on the total number of UEs needed</p>
+      </div>
+
       {subscribers.map((subscriber) => (
-        <div key={subscriber.id} className="cell-container mb-8">
+        <div key={subscriber.id} className="cell-container mb-8 border p-4 rounded-lg">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">Range #{subscriber.id}</h3>
             {subscribers.length > 1 && (
@@ -286,6 +314,7 @@ const SubscriberForm: React.FC<SubscriberFormProps> = ({ onPrevious, onNext }) =
               <FormLabel 
                 htmlFor={`externalSim-${subscriber.id}`} 
                 label="External SIM" 
+                required
                 tooltipText="External SIM card configuration"
               />
               <CustomSelect
@@ -336,6 +365,7 @@ const SubscriberForm: React.FC<SubscriberFormProps> = ({ onPrevious, onNext }) =
               <FormLabel 
                 htmlFor={`mncDigits-${subscriber.id}`} 
                 label="MNC Digits" 
+                required
                 tooltipText="Mobile Network Code Digits"
               />
               <CustomInput
@@ -419,6 +449,7 @@ const SubscriberForm: React.FC<SubscriberFormProps> = ({ onPrevious, onNext }) =
                   <FormLabel 
                     htmlFor={`asRelease-${subscriber.id}`} 
                     label="AS Release" 
+                    required
                     tooltipText="Access Stratum Release version"
                   />
                   <CustomSelect
@@ -482,6 +513,7 @@ const SubscriberForm: React.FC<SubscriberFormProps> = ({ onPrevious, onNext }) =
                   <FormLabel 
                     htmlFor={`uacClass-${subscriber.id}`} 
                     label="UAC Class" 
+                    required
                     tooltipText="Unified Access Control Class"
                   />
                   <CustomSelect
@@ -498,6 +530,7 @@ const SubscriberForm: React.FC<SubscriberFormProps> = ({ onPrevious, onNext }) =
                   <FormLabel 
                     htmlFor={`blerOverride-${subscriber.id}`} 
                     label="BLER Override" 
+                    required
                     tooltipText="Block Error Rate Override"
                   />
                   <CustomInput
@@ -562,11 +595,12 @@ const SubscriberForm: React.FC<SubscriberFormProps> = ({ onPrevious, onNext }) =
                   <FormLabel 
                     htmlFor={`cqi-${subscriber.id}`} 
                     label="CQI" 
+                    required
                     tooltipText="Channel Quality Indicator"
                   />
                   <CustomSelect
                     id={`cqi-${subscriber.id}`}
-                    value={subscriber.cqi || ''}
+                    value={subscriber.cqi || 'Auto'}
                     onChange={(value) => handleSelectChange(value, subscriber.id, 'cqi')}
                     options={autoOptions}
                   />
@@ -578,11 +612,12 @@ const SubscriberForm: React.FC<SubscriberFormProps> = ({ onPrevious, onNext }) =
                   <FormLabel 
                     htmlFor={`ri-${subscriber.id}`} 
                     label="RI" 
+                    required
                     tooltipText="Rank Indicator"
                   />
                   <CustomSelect
                     id={`ri-${subscriber.id}`}
-                    value={subscriber.ri || ''}
+                    value={subscriber.ri || 'Auto'}
                     onChange={(value) => handleSelectChange(value, subscriber.id, 'ri')}
                     options={autoOptions}
                   />
@@ -594,11 +629,12 @@ const SubscriberForm: React.FC<SubscriberFormProps> = ({ onPrevious, onNext }) =
                   <FormLabel 
                     htmlFor={`pmi-${subscriber.id}`} 
                     label="PMI" 
+                    required
                     tooltipText="Precoding Matrix Indicator"
                   />
                   <CustomSelect
                     id={`pmi-${subscriber.id}`}
-                    value={subscriber.pmi || ''}
+                    value={subscriber.pmi || 'Auto'}
                     onChange={(value) => handleSelectChange(value, subscriber.id, 'pmi')}
                     options={autoOptions}
                   />
@@ -630,7 +666,7 @@ const SubscriberForm: React.FC<SubscriberFormProps> = ({ onPrevious, onNext }) =
         <Button 
           onClick={handleNext} 
           className="next-button" 
-          disabled={loading}
+          disabled={loading || !isFormValid}
         >
           {loading ? "Saving..." : "Next"}
         </Button>
