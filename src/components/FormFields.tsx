@@ -47,6 +47,7 @@ interface CustomSelectProps {
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
   placeholder?: string;
+  className?: string;
 }
 
 export const CustomSelect: React.FC<CustomSelectProps> = ({ 
@@ -54,11 +55,12 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
   value, 
   onChange, 
   options, 
-  placeholder = "Select..." 
+  placeholder = "Select...",
+  className = ""
 }) => {
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger id={id} className="w-full">
+      <SelectTrigger id={id} className={`w-full ${className}`}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>
@@ -78,6 +80,7 @@ interface CustomInputProps {
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   placeholder?: string;
   type?: string;
+  className?: string;
 }
 
 export const CustomInput: React.FC<CustomInputProps> = ({ 
@@ -85,7 +88,8 @@ export const CustomInput: React.FC<CustomInputProps> = ({
   value, 
   onChange, 
   placeholder = "", 
-  type = "text" 
+  type = "text",
+  className = ""
 }) => {
   return (
     <Input
@@ -94,7 +98,7 @@ export const CustomInput: React.FC<CustomInputProps> = ({
       value={value}
       onChange={onChange}
       placeholder={placeholder}
-      className="w-full"
+      className={`w-full ${className}`}
     />
   );
 };
