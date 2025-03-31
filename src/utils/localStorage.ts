@@ -41,7 +41,7 @@ export const saveUserPlaneData = (data: FormData['userPlane']): void => {
 };
 
 export const getUserPlaneData = (): FormData['userPlane'] => {
-  return getFromLocalStorage<FormData['userPlane']>('userPlaneData', {} as FormData['userPlane']);
+  return getFromLocalStorage<FormData['userPlane']>('userPlaneData', []);
 };
 
 export const saveTrafficData = (data: FormData['traffic']): void => {
@@ -49,7 +49,7 @@ export const saveTrafficData = (data: FormData['traffic']): void => {
 };
 
 export const getTrafficData = (): FormData['traffic'] => {
-  return getFromLocalStorage<FormData['traffic']>('trafficData', {} as FormData['traffic']);
+  return getFromLocalStorage<FormData['traffic']>('trafficData', []);
 };
 
 export const saveMobilityData = (data: FormData['mobility']): void => {
@@ -57,7 +57,7 @@ export const saveMobilityData = (data: FormData['mobility']): void => {
 };
 
 export const getMobilityData = (): FormData['mobility'] => {
-  return getFromLocalStorage<FormData['mobility']>('mobilityData', {} as FormData['mobility']);
+  return getFromLocalStorage<FormData['mobility']>('mobilityData', []);
 };
 
 export const saveSettingsData = (data: FormData['settings']): void => {

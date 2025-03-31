@@ -18,19 +18,19 @@ export const ApiService = {
     return data;
   },
 
-  saveUserPlaneData: async (data: UserPlaneData): Promise<UserPlaneData> => {
+  saveUserPlaneData: async (data: UserPlaneData[]): Promise<UserPlaneData[]> => {
     await delay(500);
     console.log('API call: Saving user plane data', data);
     return data;
   },
 
-  saveTrafficData: async (data: TrafficData): Promise<TrafficData> => {
+  saveTrafficData: async (data: TrafficData[]): Promise<TrafficData[]> => {
     await delay(500);
     console.log('API call: Saving traffic data', data);
     return data;
   },
 
-  saveMobilityData: async (data: MobilityData): Promise<MobilityData> => {
+  saveMobilityData: async (data: MobilityData[]): Promise<MobilityData[]> => {
     await delay(500);
     console.log('API call: Saving mobility data', data);
     return data;

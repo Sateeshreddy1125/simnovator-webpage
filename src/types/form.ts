@@ -21,19 +21,74 @@ export interface CellData {
 export interface SubscriberData {
   id: number;
   noOfUes: string;
-  // Additional subscriber properties as needed
+  servingCell?: string;
+  externalSim?: string;
+  startingSupi?: string;
+  mncDigits?: string;
+  nextSupi?: string;
+  algorithm?: string;
+  sharedKey?: string;
+  asRelease?: string;
+  ueType?: string;
+  ueCategory?: string;
+  voiceCapability?: boolean;
+  uacClass?: string;
+  blerOverride?: string;
+  integrityAlgorithm?: string[];
+  cipherAlgorithm?: string[];
+  cqi?: string;
+  ri?: string;
+  pmi?: string;
 }
 
 export interface UserPlaneData {
-  // User plane specific properties
+  id: number;
+  profileType?: string;
+  subscriberRange?: string;
+  dataType?: string;
+  transportProtocol?: string;
+  destinationIpAddress?: string;
+  startingPort?: string;
+  pdnType?: string;
+  startDelay?: string;
+  duration?: string;
+  dataLoop?: string;
+  dataDirection?: string;
+  dlBitrate?: string;
+  dlBitrateUnit?: string;
+  ulBitrate?: string;
+  ulBitrateUnit?: string;
+  payloadLength?: string;
+  mtuSize?: string;
 }
 
 export interface TrafficData {
-  // Traffic specific properties
+  id: number;
+  profileType?: string;
+  profileRange?: string;
+  loopProfile?: string;
+  attachType?: string;
+  attachRate?: string;
+  attachDelay?: string;
+  powerOnDuration?: string;
 }
 
 export interface MobilityData {
-  // Mobility specific properties
+  id: number;
+  mpId?: string;
+  ueGroup?: string;
+  tripType?: string;
+  loopProfile?: string;
+  delay?: string;
+  duration?: string;
+  waitTime?: string;
+  uePositionX?: string;
+  uePositionY?: string;
+  speed?: string;
+  direction?: string;
+  distance?: string;
+  fadingType?: string;
+  noiseSpectralDensity?: string;
 }
 
 export interface SettingsData {
@@ -45,9 +100,9 @@ export interface SettingsData {
 export interface FormData {
   cells: CellData[];
   subscribers: SubscriberData[];
-  userPlane: UserPlaneData;
-  traffic: TrafficData;
-  mobility: MobilityData;
+  userPlane: UserPlaneData[];
+  traffic: TrafficData[];
+  mobility: MobilityData[];
   settings: SettingsData;
 }
 

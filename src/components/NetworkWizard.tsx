@@ -31,6 +31,10 @@ const NetworkWizard: React.FC = () => {
 
   return (
     <div className="wizard-container">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Test Case List / Create Test Case</h1>
+      </div>
+      
       <div className="wizard-steps">
         {STEPS.map((step, index) => (
           <div
