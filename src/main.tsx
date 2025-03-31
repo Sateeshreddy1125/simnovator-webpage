@@ -1,6 +1,7 @@
 
 import React from 'react'
-import * as ReactDOM from 'react-dom/client'
+import ReactDOMClient from 'react-dom/client'
+import ReactDOM from 'react-dom'
 import App from './App.tsx'
 import './index.css'
 
@@ -8,9 +9,10 @@ import './index.css'
 console.log(`Running React version: ${React.version}`);
 
 // Check which rendering method is available
-if (ReactDOM.createRoot) {
-  ReactDOM.createRoot(document.getElementById("root")!).render(<App />);
+if (ReactDOMClient.createRoot) {
+  // Modern React 18+ rendering
+  ReactDOMClient.createRoot(document.getElementById("root")!).render(<App />);
 } else {
-  // Fallback to legacy render method if createRoot is not available
+  // Legacy React rendering (React 17 and earlier)
   ReactDOM.render(<App />, document.getElementById("root"));
 }
