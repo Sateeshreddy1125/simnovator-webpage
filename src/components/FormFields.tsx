@@ -10,7 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { InfoCircle } from 'lucide-react';
+import { Info } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface FormLabelProps {
@@ -29,7 +29,7 @@ export const FormLabel: React.FC<FormLabelProps> = ({ htmlFor, label, required, 
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <InfoCircle className="info-icon w-4 h-4 ml-1 cursor-help" />
+              <Info className="info-icon w-4 h-4 ml-1 cursor-help" />
             </TooltipTrigger>
             <TooltipContent>
               <p>{tooltipText}</p>
