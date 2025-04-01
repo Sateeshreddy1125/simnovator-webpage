@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { STEPS } from '../types/form';
 import CellForm from './CellForm';
@@ -151,7 +150,6 @@ const NetworkWizard: React.FC = () => {
       {activeStep === 0 && (
         <CellForm 
           onNext={handleNext} 
-          onMobilityChange={setIsMobilityRequired}
         />
       )}
 
