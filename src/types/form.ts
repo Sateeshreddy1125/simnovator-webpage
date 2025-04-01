@@ -1,4 +1,5 @@
 
+// Base interfaces for form data
 export interface CellData {
   id: number;
   ratType: string;
@@ -40,6 +41,7 @@ export interface SubscriberData {
   cqi?: string;
   ri?: string;
   pmi?: string;
+  showAdvancedSettings?: boolean;
 }
 
 export interface UserPlaneData {
@@ -107,4 +109,77 @@ export interface FormData {
   settings: SettingsData;
 }
 
+// Validation helpers
+export type ValidationErrors = Record<string, string>;
+
+export interface FormValidation<T> {
+  validate: (data: T[]) => boolean;
+  getErrors: (data: T[]) => ValidationErrors;
+  isRequired: (field: keyof T) => boolean;
+}
+
+// Define wizard steps
 export const STEPS = ["Cell", "Subscriber", "User Plane", "Traffic", "Mobility", "Settings"];
+
+// Field requirement configurations
+export const requiredCellFields: Array<keyof CellData> = ['ratType', 'mobility', 'duplexMode', 'band', 'cellType'];
+export const requiredSubscriberFields: Array<keyof SubscriberData> = ['noOfUes', 'servingCell', 'startingSupi'];
+export const requiredUserPlaneFields: Array<keyof UserPlaneData> = [
+  'subscriberRange', 'dataType', 'transportProtocol', 'destinationIpAddress', 
+  'startingPort', 'pdnType', 'duration', 'dataDirection', 'payloadLength', 'mtuSize'
+];
+export const requiredTrafficFields: Array<keyof TrafficData> = [
+  'profileRange', 'loopProfile', 'attachType', 'attachRate', 'powerOnDuration'
+];
+export const requiredMobilityFields: Array<keyof MobilityData> = [
+  'ueGroup', 'tripType', 'loopProfile', 'delay', 'duration', 
+  'speed', 'direction', 'distance'
+];
+export const requiredSettingsFields: Array<keyof SettingsData> = [
+  'testCaseName', 'logSetting', 'successSettings'
+];
+
+// Create validation helper function
+export function createValidator<T>(requiredFields: Array<keyof T>): FormValidation<T> {
+  return {
+    validate: (data: T[]) => {
+      if (!data || data.length === 0) return false;
+      
+      for (const item of data) {
+        for (const field of requiredFields) {
+          if (item[field] === undefined || item[field] === null || item[field] === '') {
+            return false;
+          }
+        }
+      }
+      return true;
+    },
+    getErrors: (data: T[]) => {
+      const errors: ValidationErrors = {};
+      
+      if (!data || data.length === 0) {
+        errors['general'] = 'No data provided';
+        return errors;
+      }
+      
+      data.forEach((item, index) => {
+        requiredFields.forEach(field => {
+          if (item[field] === undefined || item[field] === null || item[field] === '') {
+            errors[`${index}-${String(field)}`] = `${String(field)} is required`;
+          }
+        });
+      });
+      
+      return errors;
+    },
+    isRequired: (field: keyof T) => requiredFields.includes(field)
+  };
+}
+
+// Export validators for each form type
+export const cellValidator = createValidator<CellData>(requiredCellFields);
+export const subscriberValidator = createValidator<SubscriberData>(requiredSubscriberFields);
+export const userPlaneValidator = createValidator<UserPlaneData>(requiredUserPlaneFields);
+export const trafficValidator = createValidator<TrafficData>(requiredTrafficFields);
+export const mobilityValidator = createValidator<MobilityData>(requiredMobilityFields);
+export const settingsValidator = createValidator<SettingsData>(requiredSettingsFields);

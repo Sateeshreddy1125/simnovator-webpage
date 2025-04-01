@@ -1,11 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
-import { SettingsData } from '../types/form';
+import { SettingsData, settingsValidator } from '../types/form';
 import { FormLabel, CustomSelect, CustomInput, FormGroup, FormRow } from './FormFields';
 import { Button } from '@/components/ui/button';
 import { getSettingsData, saveSettingsData, getAllFormData, clearAllFormData } from '../utils/localStorage';
 import { ApiService } from '../services/api';
 import { toast } from '@/components/ui/use-toast';
+import { logSettingOptions, successSettingsOptions } from '../config/formOptions';
+import { FieldRenderer } from './FormFieldRenderer';
 
 interface SettingsFormProps {
   onPrevious: () => void;
@@ -19,6 +21,7 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ onPrevious, onReset }) => {
     successSettings: ''
   });
   const [loading, setLoading] = useState(false);
+  const [isValid, setIsValid] = useState(false);
 
   useEffect(() => {
     // Load data from localStorage when component mounts
@@ -28,15 +31,12 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ onPrevious, onReset }) => {
     }
   }, []);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof SettingsData) => {
-    const { value } = e.target;
-    setSettings(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
+  useEffect(() => {
+    // Validate form whenever data changes
+    setIsValid(settingsValidator.validate([settings]));
+  }, [settings]);
 
-  const handleSelectChange = (value: string, field: keyof SettingsData) => {
+  const handleInputChange = (value: string, field: keyof SettingsData) => {
     setSettings(prev => ({
       ...prev,
       [field]: value
@@ -44,8 +44,7 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ onPrevious, onReset }) => {
   };
 
   const handleCreate = async () => {
-    // Validate required fields
-    if (!settings.testCaseName || !settings.logSetting || !settings.successSettings) {
+    if (!isValid) {
       toast({
         title: "Validation Error",
         description: "Please fill in all required fields",
@@ -90,16 +89,24 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ onPrevious, onReset }) => {
     }
   };
 
-  const logSettingOptions = [
-    { value: 'Standard', label: 'Standard' },
-    { value: 'Verbose', label: 'Verbose' },
-    { value: 'Debug', label: 'Debug' },
-  ];
-
-  const successSettingsOptions = [
-    { value: 'Default', label: 'Default' },
-    { value: 'Custom', label: 'Custom' },
-  ];
+  // Field definitions for cleaner rendering
+  const fields = {
+    testCaseName: {
+      label: 'Test Case Name',
+      tooltipText: 'Name of the test case',
+      required: true
+    },
+    logSetting: {
+      label: 'Log Setting',
+      tooltipText: 'Logging level for the test case',
+      required: true
+    },
+    successSettings: {
+      label: 'Success Settings',
+      tooltipText: 'Criteria for test success',
+      required: true
+    }
+  };
 
   return (
     <div className="wizard-content">
@@ -108,56 +115,32 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ onPrevious, onReset }) => {
       </div>
 
       <div className="cell-container mb-8">
-        <FormRow>
-          <FormGroup>
-            <FormLabel 
-              htmlFor="testCaseName" 
-              label="Test Case Name" 
-              required 
-              tooltipText="Name of the test case" 
-            />
-            <CustomInput
-              id="testCaseName"
-              value={settings.testCaseName}
-              onChange={(e) => handleInputChange(e, 'testCaseName')}
-              placeholder="Enter test case name"
-            />
-          </FormGroup>
-        </FormRow>
+        <FieldRenderer
+          id="testCaseName"
+          type="input"
+          field={fields.testCaseName}
+          value={settings.testCaseName}
+          onChange={(value) => handleInputChange(value, 'testCaseName')}
+          placeholder="Enter test case name"
+        />
 
-        <FormRow>
-          <FormGroup>
-            <FormLabel 
-              htmlFor="logSetting" 
-              label="Log Setting" 
-              required 
-              tooltipText="Logging level for the test case" 
-            />
-            <CustomSelect
-              id="logSetting"
-              value={settings.logSetting}
-              onChange={(value) => handleSelectChange(value, 'logSetting')}
-              options={logSettingOptions}
-            />
-          </FormGroup>
-        </FormRow>
+        <FieldRenderer
+          id="logSetting"
+          type="select"
+          field={fields.logSetting}
+          value={settings.logSetting}
+          onChange={(value) => handleInputChange(value, 'logSetting')}
+          options={logSettingOptions}
+        />
 
-        <FormRow>
-          <FormGroup>
-            <FormLabel 
-              htmlFor="successSettings" 
-              label="Success Settings" 
-              required 
-              tooltipText="Criteria for test success" 
-            />
-            <CustomSelect
-              id="successSettings"
-              value={settings.successSettings}
-              onChange={(value) => handleSelectChange(value, 'successSettings')}
-              options={successSettingsOptions}
-            />
-          </FormGroup>
-        </FormRow>
+        <FieldRenderer
+          id="successSettings"
+          type="select"
+          field={fields.successSettings}
+          value={settings.successSettings}
+          onChange={(value) => handleInputChange(value, 'successSettings')}
+          options={successSettingsOptions}
+        />
       </div>
 
       <div className="flex justify-between">
@@ -171,7 +154,7 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ onPrevious, onReset }) => {
         <Button 
           onClick={handleCreate} 
           className="next-button" 
-          disabled={loading}
+          disabled={loading || !isValid}
         >
           {loading ? "Creating..." : "Create"}
         </Button>
